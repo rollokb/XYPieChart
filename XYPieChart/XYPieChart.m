@@ -89,7 +89,7 @@
 - (SliceLayer *)createSliceLayer;
 - (CGSize)sizeThatFitsString:(NSString *)string;
 - (void)updateLabelForLayer:(SliceLayer *)pieLayer value:(CGFloat)value;
-- (void)notifyDelegateOfSelectionChangeFrom:(NSUInteger)previousSelection to:(NSUInteger)newSelection;
+
 @end
 
 @implementation XYPieChart
@@ -505,109 +505,6 @@ static CGPathRef CGPathCreateArc(CGPoint center, CGFloat radius, CGFloat startAn
         }
     }];
     return selectedIndex;
-}
-
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
-{
-    [self touchesMoved:touches withEvent:event];
-}
-
-- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
-{
-    UITouch *touch = [touches anyObject];
-    CGPoint point = [touch locationInView:_pieView];
-    [self getCurrentSelectedOnTouch:point];
-}
-
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
-{
-    UITouch *touch = [touches anyObject];
-    CGPoint point = [touch locationInView:_pieView];
-    NSInteger selectedIndex = [self getCurrentSelectedOnTouch:point];
-    [self notifyDelegateOfSelectionChangeFrom:_selectedSliceIndex to:selectedIndex];
-    [self touchesCancelled:touches withEvent:event];
-}
-
-- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
-{
-    CALayer *parentLayer = [_pieView layer];
-    NSArray *pieLayers = [parentLayer sublayers];
-    
-    for (SliceLayer *pieLayer in pieLayers) {
-        [pieLayer setZPosition:kDefaultSliceZOrder];
-        [pieLayer setLineWidth:0.0];
-    }
-}
-
-#pragma mark - Selection Notification
-
-- (void)notifyDelegateOfSelectionChangeFrom:(NSUInteger)previousSelection to:(NSUInteger)newSelection
-{
-    if (previousSelection != newSelection){
-        if(previousSelection != -1){
-            NSUInteger tempPre = previousSelection;
-            if ([_delegate respondsToSelector:@selector(pieChart:willDeselectSliceAtIndex:)])
-                [_delegate pieChart:self willDeselectSliceAtIndex:tempPre];
-            [self setSliceDeselectedAtIndex:tempPre];
-            previousSelection = newSelection;
-            if([_delegate respondsToSelector:@selector(pieChart:didDeselectSliceAtIndex:)])
-                [_delegate pieChart:self didDeselectSliceAtIndex:tempPre];
-        }
-        
-        if (newSelection != -1){
-            if([_delegate respondsToSelector:@selector(pieChart:willSelectSliceAtIndex:)])
-                [_delegate pieChart:self willSelectSliceAtIndex:newSelection];
-            [self setSliceSelectedAtIndex:newSelection];
-            _selectedSliceIndex = newSelection;
-            if([_delegate respondsToSelector:@selector(pieChart:didSelectSliceAtIndex:)])
-                [_delegate pieChart:self didSelectSliceAtIndex:newSelection];
-        }
-    }else if (newSelection != -1){
-        SliceLayer *layer = [_pieView.layer.sublayers objectAtIndex:newSelection];
-        if(_selectedSliceOffsetRadius > 0 && layer){
-            if (layer.isSelected) {
-                if ([_delegate respondsToSelector:@selector(pieChart:willDeselectSliceAtIndex:)])
-                    [_delegate pieChart:self willDeselectSliceAtIndex:newSelection];
-                [self setSliceDeselectedAtIndex:newSelection];
-                if (newSelection != -1 && [_delegate respondsToSelector:@selector(pieChart:didDeselectSliceAtIndex:)])
-                    [_delegate pieChart:self didDeselectSliceAtIndex:newSelection];
-                previousSelection = _selectedSliceIndex = -1;
-            }else{
-                if ([_delegate respondsToSelector:@selector(pieChart:willSelectSliceAtIndex:)])
-                    [_delegate pieChart:self willSelectSliceAtIndex:newSelection];
-                [self setSliceSelectedAtIndex:newSelection];
-                previousSelection = _selectedSliceIndex = newSelection;
-                if (newSelection != -1 && [_delegate respondsToSelector:@selector(pieChart:didSelectSliceAtIndex:)])
-                    [_delegate pieChart:self didSelectSliceAtIndex:newSelection];
-            }
-        }
-    }
-}
-#pragma mark - Selection Programmatically Without Notification
-
-- (void)setSliceSelectedAtIndex:(NSInteger)index
-{
-    if(_selectedSliceOffsetRadius <= 0)
-        return;
-    SliceLayer *layer = [_pieView.layer.sublayers objectAtIndex:index];
-    if (layer && !layer.isSelected) {
-        CGPoint currPos = layer.position;
-        double middleAngle = (layer.startAngle + layer.endAngle)/2.0;
-        CGPoint newPos = CGPointMake(currPos.x + _selectedSliceOffsetRadius*cos(middleAngle), currPos.y + _selectedSliceOffsetRadius*sin(middleAngle));
-        layer.position = newPos;
-        layer.isSelected = YES;
-    }
-}
-
-- (void)setSliceDeselectedAtIndex:(NSInteger)index
-{
-    if(_selectedSliceOffsetRadius <= 0)
-        return;
-    SliceLayer *layer = [_pieView.layer.sublayers objectAtIndex:index];
-    if (layer && layer.isSelected) {
-        layer.position = CGPointMake(0, 0);
-        layer.isSelected = NO;
-    }
 }
 
 #pragma mark - Pie Layer Creation Method
